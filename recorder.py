@@ -1,5 +1,11 @@
 import speech_recognition as sr
- 
+import sys
+
+def listen_from_file(recognizer, filename):
+    with sr.AudioFile(filename) as source:
+        audio = recognizer.record(source)
+    return audio
+
 def listen(recognizer):
     with sr.Microphone() as source:
         recognizer.adjust_for_ambient_noise(source)
@@ -20,7 +26,17 @@ def transcript(recognizer, audio):
         return None
 
 if __name__ == '__main__':
+
     recognizer = sr.Recognizer()
-    audio = listen(recognizer)
-    speech = transcript(recognizer, audio)
-    print(speech)
+     
+    try:
+        filename = sys.argv[1]
+        audio = listen_from_file(recognizer, filename)
+        speech = transcript(recognizer, audio)
+        print(speech)
+    except FileNotFoundError:
+        print('File not Found')
+    except IndexError:
+        audio = listen(recognizer)
+        speech = transcript(recognizer, audio)
+        print(speech)
