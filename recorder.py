@@ -1,10 +1,15 @@
 import speech_recognition as sr
 import sys
+import argparse
+import io
+from pydub import AudioSegment
+from google.cloud import speech
 
-def listen_from_file(recognizer, filename):
-    with sr.AudioFile(filename) as source:
-        audio = recognizer.record(source)
-    return audio
+
+def listen_from_file(path):
+    audio_file = AudioSegment.from_wav(path)
+    audio_file = audio_file.set_channels(1)
+    audio_file.export('xablau.wav', format='wav')
 
 def listen(recognizer):
     with sr.Microphone() as source:
@@ -13,30 +18,43 @@ def listen(recognizer):
         audio = recognizer.listen(source, phrase_time_limit=5)
         return audio
 
-def transcript(recognizer, audio):
+def transcript(path):
 # Speech recognition using Google Speech Recognition
-    try:
-        speech = recognizer.recognize_google(audio, language='pt')
-        return speech
-    except sr.UnknownValueError:
-        print("Google Speech Recognition could not understand audio")
-        return None
-    except sr.RequestError as e:
-        print("Could not request results from Google Speech Recognition service; {0}".format(e))
-        return None
+    client = speech.SpeechClient()
+
+    # path = 'resources/commercial_mono.wav'
+    audio_file = AudioSegment.from_wav(path)
+    audio_file = audio_file.set_channels(1)
+    audio_file.export('tmp.wav', format='wav')
+    
+    with io.open('tmp.wav', 'rb') as audio_file:
+        content = audio_file.read()
+
+    audio = speech.types.RecognitionAudio(content=content)
+    config = speech.types.RecognitionConfig(
+        encoding=speech.enums.RecognitionConfig.AudioEncoding.LINEAR16,
+        language_code='pt-BR',
+        # Enhanced models are only available to projects that
+        # opt in for audio data collection.
+        use_enhanced=True,
+        # A model must be specified to use enhanced model.
+        model='command_and_search')
+
+    response = client.recognize(config, audio)
+
+    for i, result in enumerate(response.results):
+        alternative = result.alternatives[0]
+        print('-' * 20)
+        print('First alternative of result {}'.format(i))
+        print('Transcript: {}'.format(alternative.transcript))
+    # [END speech_transcribe_enhanced_model]
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('path', help='File to stream to the API')
 
-    recognizer = sr.Recognizer()
-     
-    try:
-        filename = sys.argv[1]
-        audio = listen_from_file(recognizer, filename)
-        speech = transcript(recognizer, audio)
-        print(speech)
-    except FileNotFoundError:
-        print('File not Found')
-    except IndexError:
-        audio = listen(recognizer)
-        speech = transcript(recognizer, audio)
-        print(speech)
+    args = parser.parse_args()
+
+    transcript(args.path)
