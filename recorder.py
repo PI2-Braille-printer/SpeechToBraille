@@ -9,7 +9,8 @@ from google.cloud import speech
 def listen_from_file(path):
     audio_file = AudioSegment.from_wav(path)
     audio_file = audio_file.set_channels(1)
-    audio_file.export('xablau.wav', format='wav')
+    audio_file.export('tmp.wav', format='wav')
+    return audio_file
 
 def listen(recognizer):
     with sr.Microphone() as source:
@@ -19,13 +20,8 @@ def listen(recognizer):
         return audio
 
 def transcript(path):
-# Speech recognition using Google Speech Recognition
     client = speech.SpeechClient()
-
-    # path = 'resources/commercial_mono.wav'
-    audio_file = AudioSegment.from_wav(path)
-    audio_file = audio_file.set_channels(1)
-    audio_file.export('tmp.wav', format='wav')
+    audio_file = listen_from_file(path)
     
     with io.open('tmp.wav', 'rb') as audio_file:
         content = audio_file.read()
@@ -34,10 +30,10 @@ def transcript(path):
     config = speech.types.RecognitionConfig(
         encoding=speech.enums.RecognitionConfig.AudioEncoding.LINEAR16,
         language_code='pt-BR',
-        # Enhanced models are only available to projects that
-        # opt in for audio data collection.
         use_enhanced=True,
-        # A model must be specified to use enhanced model.
+        enable_automatic_punctuation=True,
+        #audio_channel_count=1,
+        #enable_separate_recognition_per_channel=True,
         model='command_and_search')
 
     response = client.recognize(config, audio)
@@ -47,7 +43,6 @@ def transcript(path):
         print('-' * 20)
         print('First alternative of result {}'.format(i))
         print('Transcript: {}'.format(alternative.transcript))
-    # [END speech_transcribe_enhanced_model]
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
