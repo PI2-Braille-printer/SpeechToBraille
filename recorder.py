@@ -9,23 +9,27 @@ from google.cloud import speech
 def listen_from_file(path):
     audio_file = AudioSegment.from_wav(path)
     audio_file = audio_file.set_channels(1)
-    audio_file.export('tmp.wav', format='wav')
+    audio_file.export('audio_file.wav', format='wav')
     return audio_file
 
 def listen(recognizer):
     with sr.Microphone() as source:
-        recognizer.adjust_for_ambient_noise(source)
+        #recognizer.adjust_for_ambient_noise(source)
         print("Say something!")
-        audio = recognizer.listen(source, phrase_time_limit=5)
-        return audio
+        audio = recognizer.listen(source, phrase_time_limit=30)
+        f = open('audio_file.wav', 'wb')
+        f.write(audio.get_wav_data())
 
 def transcript(path):
     client = speech.SpeechClient()
-    audio_file = listen_from_file(path)
-    
-    with io.open('tmp.wav', 'rb') as audio_file:
+    if path:
+        audio_file = listen_from_file(path)
+    else:
+        audio_file = listen(sr.Recognizer())
+    with open('audio_file.wav', 'rb') as audio_file:
         content = audio_file.read()
 
+    
     audio = speech.types.RecognitionAudio(content=content)
     config = speech.types.RecognitionConfig(
         encoding=speech.enums.RecognitionConfig.AudioEncoding.LINEAR16,
@@ -45,11 +49,7 @@ def transcript(path):
         print('Transcript: {}'.format(alternative.transcript))
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('path', help='File to stream to the API')
-
-    args = parser.parse_args()
-
-    transcript(args.path)
+    path = None
+    if (len(sys.argv) > 1):
+        path = sys.argv[1]
+    transcript(path=path)
